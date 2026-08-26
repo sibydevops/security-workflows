@@ -4,42 +4,31 @@ on:
   workflow_call:
     inputs:
       languages:
-        description: 'Languages to analyze'
-        required: false
-        default: 'javascript,python,java,csharp,go'
-        type: string
-      queries:
-        description: 'CodeQL queries'
-        required: false
-        default: 'security-extended'
+        description: CodeQL language
+        required: true
         type: string
 
 permissions:
   contents: read
   security-events: write
-  actions: read
 
 jobs:
-  sast-scan:
+  codeql:
+    name: CodeQL (${{ inputs.languages }})
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      - name: Checkout source repository
         uses: actions/checkout@v4
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ inputs.languages }}
-          queries: ${{ inputs.queries }}
+          queries: security-extended
 
-      - name: Perform CodeQL Analysis
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze
         uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:${{ inputs.languages }}"
-
-      - name: Upload CodeQL Results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: codeql-results
-          path: results.sarif
