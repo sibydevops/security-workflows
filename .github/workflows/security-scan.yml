@@ -1,0 +1,30 @@
+name: OWASP Security Scan
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  secret-scan:
+    name: Secret Scanning
+    uses: sibydevops/security-workflows/.github/workflows/reusable-secret-scan.yml@main
+    secrets: inherit
+
+  sast-scan:
+    name: SAST Scan
+    uses: sibydevops/security-workflows/.github/workflows/reusable-sast-scan.yml@main
+    with:
+      languages: javascript
+      queries: security-extended
+
+  dependency-scan:
+    name: Dependency Scanning
+    uses: sibydevops/security-workflows/.github/workflows/reusable-dependency-scan.yml@main
+    with:
+      project-name: ${{ github.event.repository.name }}
+      scan-path: .
+      format: SARIF

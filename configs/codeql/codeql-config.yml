@@ -1,0 +1,26 @@
+name: "CodeQL Security Configuration"
+
+query-filters:
+  - exclude:
+      id: py/clear-text-logging-sensitive-data
+  - include:
+      id: py/sql-injection
+  - include:
+      id: py/xss
+  - include:
+      id: py/path-injection
+  - include:
+      id: py/unsafe-deserialization
+
+paths:
+  - src
+  - app
+  - lib
+
+paths-ignore:
+  - test
+  - tests
+  - '**/*.test.js'
+  - '**/*.spec.js'
+  - node_modules
+  - vendor

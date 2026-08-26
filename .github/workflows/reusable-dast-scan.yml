@@ -1,0 +1,66 @@
+name: Reusable DAST Scan
+
+on:
+  workflow_call:
+    inputs:
+      target-url:
+        description: 'Target URL for DAST scanning'
+        required: true
+        type: string
+      zap-rules-file:
+        description: 'Path to ZAP rules file'
+        required: false
+        default: '.zap/rules.tsv'
+        type: string
+      scan-type:
+        description: 'Scan type: baseline or full'
+        required: false
+        default: 'baseline'
+        type: string
+      fail-on-severity:
+        description: 'Fail CI on severity'
+        required: false
+        default: 'high'
+        type: string
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  dast-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: OWASP ZAP Baseline Scan
+        if: inputs.scan-type == 'baseline'
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: ${{ inputs.target-url }}
+          rules_file_name: ${{ inputs.zap-rules-file }}
+          cmd_options: '-a'
+          artifact_name: 'zap-baseline-report'
+
+      - name: OWASP ZAP Full Scan
+        if: inputs.scan-type == 'full'
+        uses: zaproxy/action-full-scan@v0.1.0
+        with:
+          target: ${{ inputs.target-url }}
+          rules_file_name: ${{ inputs.zap-rules-file }}
+          cmd_options: '-a'
+          artifact_name: 'zap-full-report'
+
+      - name: Upload ZAP Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-scan-report
+          path: report_html.html
+
+      - name: Upload ZAP Results to Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: report_html.sarif

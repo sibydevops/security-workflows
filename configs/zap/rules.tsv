@@ -1,0 +1,26 @@
+# OWASP ZAP Rules Configuration
+# Format: <rule_id> <action> (description)
+
+# Informational - Ignore
+10035 IGNORE (Strict-Transport-Security Header Not Set)
+10098 IGNORE (Cross-Domain Misconfiguration)
+10020 IGNORE (X-Frame-Options Header)
+10021 IGNORE (X-Content-Type-Options Header Missing)
+
+# Medium Severity - Warn
+10017 WARN (Cross-Domain JavaScript Source File Inclusion)
+10015 WARN (Incomplete or No Cache-control Header Set)
+10016 WARN (Web Browser XSS Protection Not Enabled)
+
+# High Severity - Fail CI
+10011 FAIL (Cookie Without Secure Flag)
+10012 FAIL (Password Autocomplete in Browser)
+10013 FAIL (User Controllable HTML Element Attribute)
+10014 FAIL (Forms Without CSRF Protection)
+10016 FAIL (Cross-Site Scripting (Reflected))
+10017 FAIL (Cross-Site Scripting (Stored))
+10018 FAIL (SQL Injection)
+10021 FAIL (Authentication Bypass)
+10022 FAIL (Privilege Escalation)
+10023 FAIL (Session Fixation)
+10024 FAIL (Insecure Direct Object Reference)

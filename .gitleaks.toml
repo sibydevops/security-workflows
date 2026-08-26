@@ -1,0 +1,34 @@
+title = "Gitleaks Configuration"
+
+[allowlist]
+description = "Global Allowlist"
+paths = [
+  '''\.gitleaks\.toml''',
+  '''go\.sum''',
+  '''package-lock\.json''',
+  '''yarn\.lock''',
+]
+
+[[rules]]
+description = "AWS Access Key"
+id = "aws-access-key"
+regex = '''(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'''
+tags = ["key", "AWS"]
+
+[[rules]]
+description = "AWS Secret Key"
+id = "aws-secret-key"
+regex = '''(?i)aws(.{0,20})?(?-i)['\"][0-9a-zA-Z\/+]{40}['\"]'''
+tags = ["key", "AWS"]
+
+[[rules]]
+description = "GitHub Personal Access Token"
+id = "github-pat"
+regex = '''ghp_[0-9a-zA-Z]{36}'''
+tags = ["key", "GitHub"]
+
+[[rules]]
+description = "Generic API Key"
+id = "generic-api-key"
+regex = '''(?i)(api[_-]?key|apikey|api_secret)['\"]?\s*[:=]\s*['\"][0-9a-zA-Z]{16,64}['\"]'''
+tags = ["key", "API"]
