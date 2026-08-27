@@ -1,0 +1,115 @@
+name: Common OWASP Security Scan
+
+on:
+  workflow_call:
+    inputs:
+      application-type:
+        description: 'web, api, cloud-native, desktop, mobile, library, or infrastructure'
+        required: false
+        default: auto
+        type: string
+      target-url:
+        description: 'Authorized non-production URL for OWASP ZAP'
+        required: false
+        default: ''
+        type: string
+      openapi-spec:
+        description: 'Optional OpenAPI specification path'
+        required: false
+        default: ''
+        type: string
+      run-zap:
+        description: 'Run OWASP ZAP against target-url'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  profile:
+    name: Identify application profile
+    runs-on: ubuntu-latest
+    outputs:
+      application-type: ${{ steps.detect.outputs.application-type }}
+      codeql-language: ${{ steps.detect.outputs.codeql-language }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: detect
+        shell: bash
+        run: |
+          profile="${{ inputs.application-type }}"
+          if [[ "$profile" == "auto" ]]; then
+            if [[ -f Dockerfile || -d charts || -d .devcontainer || -f compose.yaml || -f compose.yml ]]; then
+              profile=cloud-native
+            elif grep -RIl 'Microsoft\.NET\.Sdk\.Web' . --include='*.csproj' | grep -q . || [[ -f pom.xml || -f package.json || -d public ]]; then
+              profile=web
+            elif [[ -f Cargo.toml || -f go.mod || -f requirements.txt || -f pyproject.toml ]]; then
+              profile=library
+            elif find . -type f \( -name '*.sln' -o -name '*.xcodeproj' -o -name '*.apk' \) | grep -q .; then
+              profile=desktop
+            else
+              profile=infrastructure
+            fi
+          fi
+
+          language=none
+          find . -type f -name '*.py' -not -path './.git/*' | grep -q . && language=python
+          find . -type f \( -name '*.cs' -o -name '*.csproj' \) -not -path './.git/*' | grep -q . && language=csharp
+          find . -type f -name '*.go' -not -path './.git/*' | grep -q . && language=go
+          find . -type f -name '*.java' -not -path './.git/*' | grep -q . && language=java-kotlin
+          find . -type f \( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \) -not -path './.git/*' | grep -q . && language=javascript-typescript
+
+          echo "application-type=$profile" >> "$GITHUB_OUTPUT"
+          echo "codeql-language=$language" >> "$GITHUB_OUTPUT"
+
+  dependency:
+    name: OWASP Dependency-Check
+    needs: profile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: ${{ github.event.repository.name || github.repository }}
+          path: .
+          format: SARIF
+          out: reports
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: owasp-dependency-check-${{ github.run_id }}
+          path: reports
+
+  zap:
+    name: OWASP ZAP DAST
+    needs: profile
+    if: inputs.run-zap && inputs.target-url != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: ${{ inputs.target-url }}
+          cmd_options: '-a'
+          artifact_name: zap-report
+
+  active-test-status:
+    name: Active test applicability
+    needs: profile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report target status
+        shell: bash
+        run: |
+          if [[ "${{ inputs.run-zap }}" == "true" && -n "${{ inputs.target-url }}" ]]; then
+            echo "OWASP ZAP is configured for ${{ needs.profile.outputs.application-type }}."
+          else
+            echo "OWASP ZAP is not applicable: no authorized target URL was supplied."
+          fi
+          echo "Application profile: ${{ needs.profile.outputs.application-type }}"
+          echo "Detected CodeQL language: ${{ needs.profile.outputs.codeql-language }}"

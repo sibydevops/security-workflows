@@ -1,0 +1,13 @@
+name: Organization OWASP Security
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  owasp:
+    uses: sibydevops/security-workflows/.github/workflows/common-owasp-security.yml@main
+    with:
+      application-type: auto
+      run-zap: false
