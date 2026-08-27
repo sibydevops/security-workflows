@@ -32,7 +32,7 @@ Do not derive target URLs from repository names. A scan must point at an authori
 
 1. Create or keep this repository public, or grant Actions read access to it from every caller repository.
 2. Enable Actions and Code scanning for the organization. Give the deployment token `Contents: Read and write` on repositories where the workflow is installed; it also needs `Metadata: Read`.
-3. Run `python deploy-workflows.py`. Use `DRY_RUN=true` first to inventory repositories without changing them. Use `python deploy-workflows.py --repo sample-dotnet-web-api` to test one application repository. Add `--force` when an existing caller must be updated.
+3. Run `python deploy-workflows.py`. Use `DRY_RUN=true` first to inventory repositories without changing them. Use `python deploy-workflows.py --repo sample-dotnet-web-api --force --disable-codeql-default-setup` to test one application repository. Add `--force` when an existing caller must be updated. The `--disable-codeql-default-setup` option is required when GitHub default CodeQL setup is enabled; a repository cannot upload results from both default and advanced CodeQL setup.
 4. Configure `SECURITY_DAST_TARGET_URL` and `SECURITY_API_URL` only for repositories that expose authorized test environments.
 5. Protect the default branches and require the security workflow checks as appropriate for the organization.
 

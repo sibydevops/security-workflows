@@ -21,6 +21,11 @@ WORKFLOW_CONTENT = WORKFLOW_PATH.read_text(encoding="utf-8")
 parser = argparse.ArgumentParser(description="Deploy the central security workflow.")
 parser.add_argument("--repo", help="Deploy only to this repository")
 parser.add_argument("--force", action="store_true", help="Update existing caller workflows")
+parser.add_argument(
+    "--disable-codeql-default-setup",
+    action="store_true",
+    help="Disable GitHub CodeQL default setup so advanced CodeQL can upload results",
+)
 args = parser.parse_args()
 
 headers = {
@@ -49,6 +54,19 @@ def github_request(url, method="GET", params=None, payload=None):
         except json.JSONDecodeError:
             pass
         return error.code, body
+
+
+def disable_codeql_default_setup(repo_name):
+    status, response = github_request(
+        f"https://api.github.com/repos/{ORG}/{repo_name}/code-scanning/default-setup",
+        method="PATCH",
+        payload={"state": "not-configured"},
+    )
+    if status not in (200, 204):
+        raise RuntimeError(
+            f"Cannot disable CodeQL default setup for {repo_name}: "
+            f"HTTP {status} ({response})"
+        )
 
 # Get every repository, not just the first page of 100.
 print(f"Fetching repositories from {ORG}...")
@@ -80,6 +98,15 @@ print(f"Found {len(repos)} repositories")
 success_count = 0
 fail_count = 0
 
+if (
+    args.disable_codeql_default_setup
+    and os.environ.get("DRY_RUN", "").lower() != "true"
+):
+    disable_codeql_default_setup("security-workflows")
+    print("Disabled CodeQL default setup for security-workflows")
+elif args.disable_codeql_default_setup:
+    print("[dry run] would disable CodeQL default setup for security-workflows")
+
 for repo in repos:
     repo_name = repo['name']
     
@@ -87,6 +114,12 @@ for repo in repos:
         continue
     
     print(f"\nDeploying to {repo_name}...")
+
+    if args.disable_codeql_default_setup and repo_name != "security-workflows" and os.environ.get("DRY_RUN", "").lower() != "true":
+        disable_codeql_default_setup(repo_name)
+        print("  Disabled CodeQL default setup")
+    elif args.disable_codeql_default_setup and repo_name != "security-workflows":
+        print("  [dry run] would disable CodeQL default setup")
     
     check_url = f"https://api.github.com/repos/{ORG}/{repo_name}/contents/.github/workflows/security-scan.yml"
     check_status, existing_file = github_request(check_url)
