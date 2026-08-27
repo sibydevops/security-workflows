@@ -44,7 +44,7 @@ The deployment script scans all repository API pages and skips this central repo
 
 ### Troubleshooting 403 Deployment Errors
 
-If repository listing succeeds but deployment returns `403 Resource not accessible by personal access token`, the token can read the organization but cannot write workflow files. For a fine-grained token, select organization `sibydevops`, select the target repositories, grant `Contents: Read and write` and `Metadata: Read`, and obtain organization approval if required. The token owner must also have write access to those repositories. For a classic token, grant the `repo` scope and authorize it for organization SSO when SSO is enabled. Set the token in the same terminal that runs the script:
+If repository listing succeeds but deployment returns `403 Resource not accessible by personal access token`, the token can read the organization but cannot write workflow files. For a fine-grained token, select organization `sibydevops`, select the target repositories, grant `Contents: Read and write` and `Metadata: Read`, and obtain organization approval if required. The token owner must also have write access to those repositories. For a classic token, grant the `repo` scope and authorize it for organization SSO when SSO is enabled. Set the token in the same terminal that runs the script. The script exits with code `1` if any repository deployment fails:
 
 ```powershell
 $env:GITHUB_TOKEN = "YOUR_TOKEN"
@@ -52,6 +52,8 @@ python deploy-workflows.py --repo sample-python-flask-api
 ```
 
 Never commit or paste the token into source files or issue comments.
+
+If the script reports `401 Bad credentials`, the token is invalid, expired, revoked, or not authorized for the organization. Create a new token and set it again; do not reuse the failed value.
 
 If an application repository has no `.github/workflows/security-scan.yml`, it cannot trigger this pipeline. For example, install it in `sample-python-flask-api` with:
 

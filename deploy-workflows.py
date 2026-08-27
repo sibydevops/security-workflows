@@ -7,7 +7,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
+GITHUB_TOKEN = (os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or "").strip()
 if not GITHUB_TOKEN:
     raise RuntimeError(
         "GITHUB_TOKEN is not set. Create a token with Contents: Read and write "
@@ -81,6 +81,11 @@ if args.repo:
     status, response = github_request(
         f"https://api.github.com/repos/{ORG}/{args.repo}"
     )
+    if status == 401:
+        raise RuntimeError(
+            "GitHub rejected the token (401 Bad credentials). "
+            "Create a new token and set GITHUB_TOKEN again."
+        )
     if status != 200:
         raise RuntimeError(f"Cannot read repository {args.repo}: HTTP {status} ({response})")
     repos = [response]
@@ -91,6 +96,12 @@ else:
             f"https://api.github.com/orgs/{ORG}/repos",
             params={"per_page": 100, "page": page, "type": "all"},
         )
+        if status == 401:
+            raise RuntimeError(
+                "GitHub rejected the token (401 Bad credentials). "
+                "Create a new token, verify it is authorized for the sibydevops "
+                "organization, and set GITHUB_TOKEN again."
+            )
         if status != 200:
             raise RuntimeError(f"Cannot list organization repositories: HTTP {status} ({response})")
         page_repos = response
@@ -160,6 +171,11 @@ for repo in repos:
         print(f"  ✅ {'Updated' if existing_file else 'Deployed'} successfully")
         success_count += 1
     else:
+        if response_status == 403:
+            print(
+                "  Permission denied: the token needs Contents: Read and write "
+                "and the token owner needs repository write access."
+            )
         print(f"  ❌ Failed: {response_status} ({response})")
         fail_count += 1
     
@@ -167,3 +183,6 @@ print(f"\n{'='*50}")
 print(f"Deployment complete!")
 print(f"✅ Success: {success_count}")
 print(f"❌ Failed: {fail_count}")
+
+if fail_count:
+    raise SystemExit(1)
