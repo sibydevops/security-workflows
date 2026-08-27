@@ -7,10 +7,6 @@ on:
         description: 'API base URL for security testing'
         required: true
         type: string
-      api-token:
-        description: 'API authentication token'
-        required: false
-        type: string
       openapi-spec:
         description: 'Path to OpenAPI specification file'
         required: false
@@ -20,6 +16,11 @@ on:
         required: false
         default: 'high'
         type: string
+
+    secrets:
+      api-token:
+        description: 'Optional API authentication token'
+        required: false
 
 permissions:
   contents: read
@@ -39,7 +40,7 @@ jobs:
         run: |
           java -jar astf-v2.0.1.jar \
             -u ${{ inputs.api-url }} \
-            ${{ inputs.api-token && format('--token {0}', inputs.api-token) || '' }} \
+            ${{ secrets.api-token && format('--token {0}', secrets.api-token) || '' }} \
             ${{ inputs.openapi-spec && format('--spec {0}', inputs.openapi-spec) || '' }} \
             -f SARIF \
             -o api-results.sarif

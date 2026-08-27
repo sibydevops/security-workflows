@@ -7,6 +7,11 @@ on:
         description: CodeQL language
         required: true
         type: string
+      queries:
+        description: CodeQL query suite
+        required: false
+        default: security-extended
+        type: string
 
 permissions:
   contents: read
@@ -25,7 +30,7 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ inputs.languages }}
-          queries: security-extended
+          queries: ${{ inputs.queries }}
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@v3

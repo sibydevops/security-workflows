@@ -1,89 +1,38 @@
 import os
 import requests
 import base64
-import time
+from pathlib import Path
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 if not GITHUB_TOKEN:
     raise RuntimeError("GITHUB_TOKEN environment variable is not set.")
 
 ORG = "sibydevops"
-WORKFLOW_CONTENT = """
-name: Security Scan
-
-on:
-  push:
-    branches: [main, master, develop]
-  pull_request:
-    branches: [main, master, develop]
-
-permissions:
-  contents: read
-  security-events: write
-  actions: read
-  pull-requests: write
-
-jobs:
-  secret-scan:
-    name: Secret Scanning
-    uses: your-org/security-workflows/.github/workflows/reusable-secret-scan.yml@main
-    with:
-      scan-level: 'verified,unverified'
-      fail-on-severity: 'high'
-
-  sast-scan:
-    name: SAST Scan
-    uses: your-org/security-workflows/.github/workflows/reusable-sast-scan.yml@main
-    with:
-      languages: 'javascript,python,java,csharp,go'
-      queries: 'security-extended'
-
-  dast-scan:
-    name: DAST Scan
-    if: github.event_name == 'pull_request' && github.base_ref == 'refs/heads/main'
-    uses: your-org/security-workflows/.github/workflows/reusable-dast-scan.yml@main
-    needs: [sast-scan]
-    with:
-      target-url: 'https://staging-${{ github.event.repository.name }}.your-org.com'
-      zap-rules-file: '.zap/rules.tsv'
-      scan-type: 'baseline'
-      fail-on-severity: 'high'
-
-  api-scan:
-    name: API Security Scan
-    if: github.event_name == 'pull_request' && contains(github.event.repository.name, 'api')
-    uses: your-org/security-workflows/.github/workflows/reusable-api-scan.yml@main
-    with:
-      api-url: 'https://api-${{ github.event.repository.name }}.your-org.com'
-      api-token: ${{ secrets.API_TOKEN }}
-      openapi-spec: 'docs/openapi.yaml'
-      fail-on-severity: 'high'
-
-  dependency-scan:
-    name: Dependency Scanning
-    uses: your-org/security-workflows/.github/workflows/reusable-dependency-scan.yml@main
-    with:
-      project-name: ${{ github.event.repository.name }}
-      scan-path: '.'
-      format: 'SARIF'
-
-  security-summary:
-    name: Security Summary
-    needs: [secret-scan, sast-scan, dast-scan, api-scan, dependency-scan]
-    if: always()
-    uses: your-org/security-workflows/.github/workflows/reusable-security-summary.yml@main
-"""
+WORKFLOW_PATH = Path(__file__).parent / ".github" / "workflows" / "security-scan.yml"
+WORKFLOW_CONTENT = WORKFLOW_PATH.read_text(encoding="utf-8")
 
 headers = {
     "Authorization": f"token {GITHUB_TOKEN}",
     "Accept": "application/vnd.github.v3+json"
 }
 
-# Get all repositories
+# Get every repository, not just the first page of 100.
 print(f"Fetching repositories from {ORG}...")
-repos_url = f"https://api.github.com/orgs/{ORG}/repos?per_page=100"
-response = requests.get(repos_url, headers=headers)
-repos = response.json()
+repos = []
+page = 1
+while True:
+  response = requests.get(
+    f"https://api.github.com/orgs/{ORG}/repos",
+    headers=headers,
+    params={"per_page": 100, "page": page, "type": "all"},
+    timeout=30,
+  )
+  response.raise_for_status()
+  page_repos = response.json()
+  repos.extend(page_repos)
+  if len(page_repos) < 100:
+    break
+  page += 1
 
 print(f"Found {len(repos)} repositories")
 
@@ -93,7 +42,7 @@ fail_count = 0
 for repo in repos:
     repo_name = repo['name']
     
-    if repo_name == 'security-workflows':
+    if repo_name == 'security-workflows' or repo.get('archived') or repo.get('fork'):
         continue
     
     print(f"\nDeploying to {repo_name}...")
@@ -112,7 +61,11 @@ for repo in repos:
         "content": base64.b64encode(WORKFLOW_CONTENT.replace('your-org', ORG).encode()).decode()
     }
     
-    response = requests.put(create_url, headers=headers, json=data)
+    if os.environ.get("DRY_RUN", "").lower() == "true":
+      print("  [dry run] would deploy workflow")
+      continue
+
+    response = requests.put(create_url, headers=headers, json=data, timeout=30)
     
     if response.status_code == 201:
         print(f"  ✅ Deployed successfully")
@@ -121,8 +74,6 @@ for repo in repos:
         print(f"  ❌ Failed: {response.status_code}")
         fail_count += 1
     
-    time.sleep(1)
-
 print(f"\n{'='*50}")
 print(f"Deployment complete!")
 print(f"✅ Success: {success_count}")

@@ -2,6 +2,12 @@ name: Reusable Security Summary
 
 on:
   workflow_call:
+    inputs:
+      app-type:
+        description: 'Detected application profile'
+        required: false
+        default: unknown
+        type: string
 
 permissions:
   contents: read
@@ -19,6 +25,7 @@ jobs:
       - name: Generate Security Summary
         run: |
           echo "## 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "**Application profile:** ${{ inputs.app-type }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           gitleaks_count=$(find reports -name "results.sarif" -exec cat {} \; | grep -c "ruleId" || echo "0")
