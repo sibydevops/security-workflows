@@ -38,6 +38,15 @@ Do not derive target URLs from repository names. A scan must point at an authori
 
 The deployment script scans all repository API pages and skips this central repository, forks, and archived repositories. Re-run it when new repositories are added; existing caller workflows are left unchanged so local exceptions are preserved.
 
+If an application repository has no `.github/workflows/security-scan.yml`, it cannot trigger this pipeline. For example, install it in `sample-python-flask-api` with:
+
+```powershell
+$env:GITHUB_TOKEN = "YOUR_TOKEN"
+python deploy-workflows.py --repo sample-python-flask-api
+```
+
+The token must be allowed to write workflow files. If the workflow already exists and needs the latest central version, add `--force`. A push to the application repository after installation triggers the caller and runs the centralized jobs in that repository's checkout.
+
 ## Local Validation
 
 The mandatory caller starts CodeQL, OWASP Dependency-Check, OWASP ZAP, and OWASP ASTF jobs on every run. ZAP and ASTF perform active penetration testing only when authorized targets are configured; otherwise their jobs report that no target is applicable. Pin the central workflow reference (`@main`) to a reviewed release tag when the organization adopts a release process.

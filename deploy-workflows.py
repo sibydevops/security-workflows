@@ -6,7 +6,10 @@ from pathlib import Path
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 if not GITHUB_TOKEN:
-    raise RuntimeError("GITHUB_TOKEN environment variable is not set.")
+    raise RuntimeError(
+        "GITHUB_TOKEN is not set. Create a token with Contents: Read and write "
+        "for the target repositories, then set it before running this script."
+    )
 
 ORG = "sibydevops"
 WORKFLOW_PATH = Path(__file__).parent / ".github" / "workflows" / "security-scan.yml"
@@ -64,6 +67,11 @@ for repo in repos:
     
     check_url = f"https://api.github.com/repos/{ORG}/{repo_name}/contents/.github/workflows/security-scan.yml"
     check_response = requests.get(check_url, headers=headers, timeout=30)
+    if check_response.status_code not in (200, 404):
+        raise RuntimeError(
+            f"Cannot inspect {repo_name}: GitHub API returned "
+            f"{check_response.status_code} ({check_response.text})"
+        )
     existing_file = check_response.json() if check_response.status_code == 200 else None
 
     if existing_file and not args.force:
