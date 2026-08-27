@@ -15,7 +15,7 @@ The caller classifies repositories from their files and selects CodeQL languages
 | `desktop` | `.sln`, `.csproj`, Xcode project files | secrets, SAST, dependencies |
 | `library-or-infrastructure` | everything else | secrets, SAST when a supported language is found, dependencies |
 
-DAST and API testing are intentionally opt-in. Set repository variables before enabling them:
+OWASP ZAP DAST and OWASP ASTF API penetration testing are target-based and intentionally opt-in. Set repository variables before enabling them:
 
 - `SECURITY_DAST_TARGET_URL`: deployed web application URL for OWASP ZAP.
 - `SECURITY_API_URL`: deployed API base URL for OWASP ASTF.
@@ -35,4 +35,4 @@ The deployment script scans all repository API pages and skips this central repo
 
 ## Local Validation
 
-The reusable workflows use GitLeaks, CodeQL, OWASP Dependency-Check, OWASP ZAP, and OWASP ASTF. Pin the central workflow reference (`@main`) to a reviewed release tag when the organization adopts a release process.
+The mandatory caller uses CodeQL and OWASP Dependency-Check. OWASP ZAP and OWASP ASTF provide active penetration testing when authorized targets are configured. Pin the central workflow reference (`@main`) to a reviewed release tag when the organization adopts a release process.

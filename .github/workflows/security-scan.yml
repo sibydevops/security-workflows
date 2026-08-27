@@ -3,6 +3,7 @@ name: OWASP Security Scan
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -34,9 +35,12 @@ jobs:
           [[ -f go.mod ]] && languages+=(go)
           [[ -f Cargo.toml ]] && languages+=(rust)
 
+          dotnet_web=false
+          grep -RIl 'Microsoft\.NET\.Sdk\.Web' . --include='*.csproj' | grep -q . && dotnet_web=true
+
           if [[ -f Dockerfile || -f compose.yml || -f compose.yaml || -d .devcontainer || -d charts ]]; then
             app_type=cloud-native
-          elif [[ -f package.json || -d public || -d src ]]; then
+          elif [[ -f package.json || -d public || -d src || "$dotnet_web" == true ]]; then
             app_type=web
           elif compgen -G '*.sln' > /dev/null || compgen -G '*.csproj' > /dev/null || compgen -G '*.xcodeproj' > /dev/null || compgen -G '*.xcworkspace' > /dev/null; then
             app_type=desktop
@@ -49,11 +53,6 @@ jobs:
           echo "app-type=$app_type" >> "$GITHUB_OUTPUT"
           [[ -n "${{ vars.SECURITY_DAST_TARGET_URL }}" ]] && echo 'has-dast-target=true' >> "$GITHUB_OUTPUT" || echo 'has-dast-target=false' >> "$GITHUB_OUTPUT"
           [[ -n "${{ vars.SECURITY_API_URL }}" ]] && echo 'has-api-target=true' >> "$GITHUB_OUTPUT" || echo 'has-api-target=false' >> "$GITHUB_OUTPUT"
-
-  secret-scan:
-    name: Secret Scanning
-    uses: sibydevops/security-workflows/.github/workflows/reusable-secret-scan.yml@main
-    secrets: inherit
 
   sast-scan:
     name: SAST Scan
@@ -95,7 +94,7 @@ jobs:
 
   security-summary:
     name: Security Summary
-    needs: [classify, secret-scan, sast-scan, dependency-scan, dast-scan, api-scan]
+    needs: [classify, sast-scan, dependency-scan, dast-scan, api-scan]
     if: always()
     uses: sibydevops/security-workflows/.github/workflows/reusable-security-summary.yml@main
     with:

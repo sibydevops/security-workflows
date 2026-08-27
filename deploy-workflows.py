@@ -1,6 +1,7 @@
 import os
 import requests
 import base64
+import argparse
 from pathlib import Path
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
@@ -11,6 +12,10 @@ ORG = "sibydevops"
 WORKFLOW_PATH = Path(__file__).parent / ".github" / "workflows" / "security-scan.yml"
 WORKFLOW_CONTENT = WORKFLOW_PATH.read_text(encoding="utf-8")
 
+parser = argparse.ArgumentParser(description="Deploy the central security workflow.")
+parser.add_argument("--repo", help="Deploy only to this repository")
+args = parser.parse_args()
+
 headers = {
     "Authorization": f"token {GITHUB_TOKEN}",
     "Accept": "application/vnd.github.v3+json"
@@ -19,20 +24,29 @@ headers = {
 # Get every repository, not just the first page of 100.
 print(f"Fetching repositories from {ORG}...")
 repos = []
-page = 1
-while True:
-  response = requests.get(
-    f"https://api.github.com/orgs/{ORG}/repos",
-    headers=headers,
-    params={"per_page": 100, "page": page, "type": "all"},
-    timeout=30,
-  )
-  response.raise_for_status()
-  page_repos = response.json()
-  repos.extend(page_repos)
-  if len(page_repos) < 100:
-    break
-  page += 1
+if args.repo:
+    response = requests.get(
+        f"https://api.github.com/repos/{ORG}/{args.repo}",
+        headers=headers,
+        timeout=30,
+    )
+    response.raise_for_status()
+    repos = [response.json()]
+else:
+    page = 1
+    while True:
+        response = requests.get(
+            f"https://api.github.com/orgs/{ORG}/repos",
+            headers=headers,
+            params={"per_page": 100, "page": page, "type": "all"},
+            timeout=30,
+        )
+        response.raise_for_status()
+        page_repos = response.json()
+        repos.extend(page_repos)
+        if len(page_repos) < 100:
+            break
+        page += 1
 
 print(f"Found {len(repos)} repositories")
 

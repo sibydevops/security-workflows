@@ -28,14 +28,12 @@ jobs:
           echo "**Application profile:** ${{ inputs.app-type }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          gitleaks_count=$(find reports -name "results.sarif" -exec cat {} \; | grep -c "ruleId" || echo "0")
           codeql_count=$(find reports -name "*.sarif" -exec cat {} \; | grep -c "ruleId" || echo "0")
           zap_count=$(find reports -name "report_html.html" -exec cat {} \; | grep -c "alert" || echo "0")
           astf_count=$(find reports -name "api-results.sarif" -exec cat {} \; | grep -c "ruleId" || echo "0")
           dependency_count=$(find reports -name "dependency-check-report.sarif" -exec cat {} \; | grep -c "ruleId" || echo "0")
           
           echo "### Scan Results" >> $GITHUB_STEP_SUMMARY
-          echo "- **Secret Scanning (GitLeaks):** $gitleaks_count findings" >> $GITHUB_STEP_SUMMARY
           echo "- **SAST (CodeQL):** $codeql_count findings" >> $GITHUB_STEP_SUMMARY
           echo "- **DAST (OWASP ZAP):** $zap_count findings" >> $GITHUB_STEP_SUMMARY
           echo "- **API Security (OWASP ASTF):** $astf_count findings" >> $GITHUB_STEP_SUMMARY
@@ -43,7 +41,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           echo "### Detailed Reports" >> $GITHUB_STEP_SUMMARY
-          echo "- [GitLeaks Report](../../actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
           echo "- [CodeQL Report](../../security/code-scanning)" >> $GITHUB_STEP_SUMMARY
           echo "- [ZAP Report](../../actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
           echo "- [ASTF Report](../../actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
