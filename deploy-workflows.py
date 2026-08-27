@@ -63,6 +63,12 @@ def disable_codeql_default_setup(repo_name):
         payload={"state": "not-configured"},
     )
     if status not in (200, 204):
+        if status == 422:
+            print(
+                f"Warning: CodeQL default setup for {repo_name} is controlled "
+                "by organization administrators; continuing deployment."
+            )
+            return
         raise RuntimeError(
             f"Cannot disable CodeQL default setup for {repo_name}: "
             f"HTTP {status} ({response})"

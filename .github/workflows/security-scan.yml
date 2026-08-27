@@ -56,15 +56,6 @@ jobs:
           [[ -n "${{ vars.SECURITY_DAST_TARGET_URL }}" ]] && echo 'has-dast-target=true' >> "$GITHUB_OUTPUT" || echo 'has-dast-target=false' >> "$GITHUB_OUTPUT"
           [[ -n "${{ vars.SECURITY_API_URL }}" ]] && echo 'has-api-target=true' >> "$GITHUB_OUTPUT" || echo 'has-api-target=false' >> "$GITHUB_OUTPUT"
 
-  sast-scan:
-    name: SAST Scan
-    needs: classify
-    uses: sibydevops/security-workflows/.github/workflows/reusable-sast-scan.yml@main
-    with:
-      languages: ${{ needs.classify.outputs.languages }}
-      run-analysis: ${{ needs.classify.outputs.has-source == 'true' }}
-      queries: security-extended
-
   dependency-scan:
     name: Dependency Scanning
     uses: sibydevops/security-workflows/.github/workflows/reusable-dependency-scan.yml@main
@@ -94,7 +85,7 @@ jobs:
 
   security-summary:
     name: Security Summary
-    needs: [classify, sast-scan, dependency-scan, dast-scan, api-scan]
+    needs: [classify, dependency-scan, dast-scan, api-scan]
     if: always()
     uses: sibydevops/security-workflows/.github/workflows/reusable-security-summary.yml@main
     with:

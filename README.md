@@ -11,6 +11,10 @@ This is important for scale: a workflow in `security-workflows` cannot receive `
 - **Actions-only:** install the caller workflow in every repository. Reconcile it periodically with `python deploy-workflows.py --force`; new repositories need to be added to the deployment process.
 - **Central event service:** install an organization GitHub App/webhook for `push` and `pull_request`, validate the event, and dispatch a scan for the changed repository. The service must use a GitHub App token and check out the event repository at the event SHA. Do not use a personal access token or scan arbitrary URLs.
 
+The central receiver is [central-security-dispatch.yml](.github/workflows/central-security-dispatch.yml). The GitHub App must call `POST /repos/sibydevops/security-workflows/dispatches` with `event_type` set to `repository-push` or `repository-pull-request` and a payload containing `repository` (`owner/name`) and `sha` (the exact commit SHA). The App needs access to the target repositories and the central repository, plus permission to dispatch workflows. Validate the webhook signature, deduplicate delivery IDs, and reject repositories outside the organization.
+
+This event-service design requires a small always-on service such as Azure Functions, AWS Lambda, or Cloud Run. GitHub Actions alone cannot subscribe one central workflow to push events from 10,000 repositories.
+
 The caller classifies repositories from their files and selects CodeQL languages. The supported profiles are:
 
 | Profile | Detection examples | Scans |
@@ -32,7 +36,7 @@ Do not derive target URLs from repository names. A scan must point at an authori
 
 1. Create or keep this repository public, or grant Actions read access to it from every caller repository.
 2. Enable Actions and Code scanning for the organization. Give the deployment token `Contents: Read and write` on repositories where the workflow is installed; it also needs `Metadata: Read`.
-3. Run `python deploy-workflows.py`. Use `DRY_RUN=true` first to inventory repositories without changing them. Use `python deploy-workflows.py --repo sample-dotnet-web-api --force --disable-codeql-default-setup` to test one application repository. Add `--force` when an existing caller must be updated. The `--disable-codeql-default-setup` option is required when GitHub default CodeQL setup is enabled; a repository cannot upload results from both default and advanced CodeQL setup.
+3. Run `python deploy-workflows.py`. Use `DRY_RUN=true` first to inventory repositories without changing them. Use `python deploy-workflows.py --repo sample-dotnet-web-api --force` to test one application repository. The OWASP caller does not use advanced CodeQL, so it is compatible with organization-controlled CodeQL default setup.
 4. Configure `SECURITY_DAST_TARGET_URL` and `SECURITY_API_URL` only for repositories that expose authorized test environments.
 5. Protect the default branches and require the security workflow checks as appropriate for the organization.
 
@@ -60,4 +64,4 @@ The token must be allowed to write workflow files. If the workflow already exist
 
 ## Local Validation
 
-The mandatory caller starts CodeQL, OWASP Dependency-Check, OWASP ZAP, and OWASP ASTF jobs on every run. ZAP and ASTF perform active penetration testing only when authorized targets are configured; otherwise their jobs report that no target is applicable. Pin the central workflow reference (`@main`) to a reviewed release tag when the organization adopts a release process.
+The mandatory caller starts OWASP Dependency-Check, OWASP ZAP, and OWASP ASTF jobs on every run. ZAP and ASTF perform active penetration testing only when authorized targets are configured; otherwise their jobs report that no target is applicable. If enabled, CodeQL default setup runs through GitHub's managed workflow separately. Pin the central workflow reference (`@main`) to a reviewed release tag when the organization adopts a release process.

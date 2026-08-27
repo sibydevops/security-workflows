@@ -1,0 +1,54 @@
+name: Central OWASP Security Scan
+
+on:
+  repository_dispatch:
+    types: [repository-push, repository-pull-request]
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Owner/name of the repository to scan'
+        required: true
+        type: string
+      ref:
+        description: 'Commit SHA or ref to scan'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  validate-event:
+    name: Validate repository event
+    runs-on: ubuntu-latest
+    outputs:
+      repository: ${{ steps.event.outputs.repository }}
+      ref: ${{ steps.event.outputs.ref }}
+    steps:
+      - id: event
+        shell: bash
+        env:
+          EVENT_REPOSITORY: ${{ github.event.client_payload.repository || inputs.repository }}
+          EVENT_REF: ${{ github.event.client_payload.sha || inputs.ref }}
+        run: |
+          if [[ ! "$EVENT_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "Invalid repository: $EVENT_REPOSITORY"
+            exit 1
+          fi
+          if [[ -z "$EVENT_REF" ]]; then
+            echo "A commit SHA or ref is required"
+            exit 1
+          fi
+          echo "repository=$EVENT_REPOSITORY" >> "$GITHUB_OUTPUT"
+          echo "ref=$EVENT_REF" >> "$GITHUB_OUTPUT"
+
+  security-scan:
+    name: OWASP scan
+    needs: validate-event
+    uses: sibydevops/security-workflows/.github/workflows/reusable-central-scan.yml@main
+    with:
+      repository: ${{ needs.validate-event.outputs.repository }}
+      ref: ${{ needs.validate-event.outputs.ref }}
+    secrets: inherit
