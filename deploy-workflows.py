@@ -1,8 +1,11 @@
 import os
-import requests
 import base64
 import argparse
+import json
 from pathlib import Path
+from urllib.error import HTTPError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 if not GITHUB_TOKEN:
@@ -22,30 +25,50 @@ args = parser.parse_args()
 
 headers = {
     "Authorization": f"token {GITHUB_TOKEN}",
-    "Accept": "application/vnd.github.v3+json"
+    "Accept": "application/vnd.github.v3+json",
+    "Content-Type": "application/json",
 }
+
+
+def github_request(url, method="GET", params=None, payload=None):
+    if params:
+        url = f"{url}?{urlencode(params)}"
+    request = Request(
+        url,
+        data=json.dumps(payload).encode("utf-8") if payload is not None else None,
+        headers=headers,
+        method=method,
+    )
+    try:
+        with urlopen(request, timeout=30) as response:
+            return response.status, json.loads(response.read().decode("utf-8"))
+    except HTTPError as error:
+        body = error.read().decode("utf-8")
+        try:
+            body = json.loads(body)
+        except json.JSONDecodeError:
+            pass
+        return error.code, body
 
 # Get every repository, not just the first page of 100.
 print(f"Fetching repositories from {ORG}...")
 repos = []
 if args.repo:
-    response = requests.get(
-        f"https://api.github.com/repos/{ORG}/{args.repo}",
-        headers=headers,
-        timeout=30,
+    status, response = github_request(
+        f"https://api.github.com/repos/{ORG}/{args.repo}"
     )
-    response.raise_for_status()
-    repos = [response.json()]
+    if status != 200:
+        raise RuntimeError(f"Cannot read repository {args.repo}: HTTP {status} ({response})")
+    repos = [response]
 else:
     page = 1
     while True:
-        response = requests.get(
+        status, response = github_request(
             f"https://api.github.com/orgs/{ORG}/repos",
-            headers=headers,
             params={"per_page": 100, "page": page, "type": "all"},
-            timeout=30,
         )
-        response.raise_for_status()
+        if status != 200:
+            raise RuntimeError(f"Cannot list organization repositories: HTTP {status} ({response})")
         page_repos = response.json()
         repos.extend(page_repos)
         if len(page_repos) < 100:
@@ -66,13 +89,14 @@ for repo in repos:
     print(f"\nDeploying to {repo_name}...")
     
     check_url = f"https://api.github.com/repos/{ORG}/{repo_name}/contents/.github/workflows/security-scan.yml"
-    check_response = requests.get(check_url, headers=headers, timeout=30)
-    if check_response.status_code not in (200, 404):
+    check_status, existing_file = github_request(check_url)
+    if check_status not in (200, 404):
         raise RuntimeError(
             f"Cannot inspect {repo_name}: GitHub API returned "
-            f"{check_response.status_code} ({check_response.text})"
+            f"{check_status} ({existing_file})"
         )
-    existing_file = check_response.json() if check_response.status_code == 200 else None
+    if check_status == 404:
+        existing_file = None
 
     if existing_file and not args.force:
         print("  Already exists, skipping (use --force to update)")
@@ -91,13 +115,13 @@ for repo in repos:
                 print("  [dry run] would deploy workflow")
                 continue
 
-    response = requests.put(create_url, headers=headers, json=data, timeout=30)
+    response_status, response = github_request(create_url, method="PUT", payload=data)
     
-    if response.status_code in (200, 201):
+    if response_status in (200, 201):
         print(f"  ✅ {'Updated' if existing_file else 'Deployed'} successfully")
         success_count += 1
     else:
-        print(f"  ❌ Failed: {response.status_code}")
+        print(f"  ❌ Failed: {response_status} ({response})")
         fail_count += 1
     
 print(f"\n{'='*50}")
