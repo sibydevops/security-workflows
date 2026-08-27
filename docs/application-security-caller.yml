@@ -10,4 +10,4 @@ jobs:
     uses: sibydevops/security-workflows/.github/workflows/common-owasp-security.yml@main
     with:
       application-type: auto
-      run-zap: false
+      run-zap: true

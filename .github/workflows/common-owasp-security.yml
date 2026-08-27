@@ -21,7 +21,7 @@ on:
       run-zap:
         description: 'Run OWASP ZAP against target-url'
         required: false
-        default: false
+        default: true
         type: boolean
 
 permissions:
@@ -36,6 +36,7 @@ jobs:
     outputs:
       application-type: ${{ steps.detect.outputs.application-type }}
       codeql-language: ${{ steps.detect.outputs.codeql-language }}
+      active-test-required: ${{ steps.detect.outputs.active-test-required }}
     steps:
       - uses: actions/checkout@v4
 
@@ -66,6 +67,11 @@ jobs:
 
           echo "application-type=$profile" >> "$GITHUB_OUTPUT"
           echo "codeql-language=$language" >> "$GITHUB_OUTPUT"
+          if [[ "$profile" == "web" || "$profile" == "api" || "$profile" == "cloud-native" ]]; then
+            echo 'active-test-required=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'active-test-required=false' >> "$GITHUB_OUTPUT"
+          fi
 
   dependency:
     name: OWASP Dependency-Check
@@ -88,11 +94,17 @@ jobs:
   zap:
     name: OWASP ZAP DAST
     needs: profile
-    if: inputs.run-zap && inputs.target-url != ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Require authorized active-test target
+        if: needs.profile.outputs.active-test-required == 'true' && (inputs.run-zap == false || inputs.target-url == '')
+        run: |
+          echo "OWASP active penetration testing is mandatory for ${{ needs.profile.outputs.application-type }} repositories."
+          echo "Provide an authorized non-production target-url and set run-zap to true."
+          exit 1
       - uses: zaproxy/action-baseline@v0.14.0
+        if: inputs.run-zap && inputs.target-url != ''
         with:
           target: ${{ inputs.target-url }}
           cmd_options: '-a'
@@ -108,8 +120,11 @@ jobs:
         run: |
           if [[ "${{ inputs.run-zap }}" == "true" && -n "${{ inputs.target-url }}" ]]; then
             echo "OWASP ZAP is configured for ${{ needs.profile.outputs.application-type }}."
+          elif [[ "${{ needs.profile.outputs.active-test-required }}" == "true" ]]; then
+            echo "OWASP active penetration testing is required but no target was supplied."
+            exit 1
           else
-            echo "OWASP ZAP is not applicable: no authorized target URL was supplied."
+            echo "OWASP active web penetration testing is not applicable to this profile."
           fi
           echo "Application profile: ${{ needs.profile.outputs.application-type }}"
           echo "Detected CodeQL language: ${{ needs.profile.outputs.codeql-language }}"

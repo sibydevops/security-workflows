@@ -86,18 +86,20 @@ Examples:
 ```yaml
 with:
   application-type: api
-  run-zap: false
+  run-zap: true
+  target-url: https://api-staging.example.test
 ```
 
 ```yaml
 with:
   application-type: cloud-native
-  run-zap: false
+  run-zap: true
+  target-url: https://service-staging.example.test
 ```
 
 ## Step 4: Configure OWASP scans
 
-The common baseline runs OWASP Dependency-Check for every repository invocation.
+The common baseline runs OWASP Dependency-Check for every repository invocation and starts the OWASP ZAP job on every invocation. For web, API, and cloud-native profiles, an authorized target is mandatory and the workflow fails if no target is supplied. For desktop, mobile, library, and infrastructure profiles, active HTTP testing is recorded as not applicable.
 
 ### Web applications
 
@@ -116,6 +118,8 @@ with:
   run-zap: true
   target-url: https://staging.example.test
 ```
+
+Do not use a placeholder target. A web/API/cloud-native scan cannot be marked successful without an authorized non-production target or an approved ephemeral deployment.
 
 ### APIs
 
