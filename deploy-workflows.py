@@ -14,6 +14,7 @@ WORKFLOW_CONTENT = WORKFLOW_PATH.read_text(encoding="utf-8")
 
 parser = argparse.ArgumentParser(description="Deploy the central security workflow.")
 parser.add_argument("--repo", help="Deploy only to this repository")
+parser.add_argument("--force", action="store_true", help="Update existing caller workflows")
 args = parser.parse_args()
 
 headers = {
@@ -62,27 +63,30 @@ for repo in repos:
     print(f"\nDeploying to {repo_name}...")
     
     check_url = f"https://api.github.com/repos/{ORG}/{repo_name}/contents/.github/workflows/security-scan.yml"
-    check_response = requests.get(check_url, headers=headers)
-    
-    if check_response.status_code == 200:
-        print(f"  ⚠️  Already exists, skipping...")
+    check_response = requests.get(check_url, headers=headers, timeout=30)
+    existing_file = check_response.json() if check_response.status_code == 200 else None
+
+    if existing_file and not args.force:
+        print("  Already exists, skipping (use --force to update)")
         continue
     
     create_url = f"https://api.github.com/repos/{ORG}/{repo_name}/contents/.github/workflows/security-scan.yml"
     
     data = {
-        "message": "Add OWASP security scanning workflow",
-        "content": base64.b64encode(WORKFLOW_CONTENT.replace('your-org', ORG).encode()).decode()
+        "message": "Update centralized OWASP security workflow",
+        "content": base64.b64encode(WORKFLOW_CONTENT.replace('your-org', ORG).encode()).decode(),
     }
+    if existing_file:
+        data["sha"] = existing_file["sha"]
     
     if os.environ.get("DRY_RUN", "").lower() == "true":
-      print("  [dry run] would deploy workflow")
-      continue
+                print("  [dry run] would deploy workflow")
+                continue
 
     response = requests.put(create_url, headers=headers, json=data, timeout=30)
     
-    if response.status_code == 201:
-        print(f"  ✅ Deployed successfully")
+    if response.status_code in (200, 201):
+        print(f"  ✅ {'Updated' if existing_file else 'Deployed'} successfully")
         success_count += 1
     else:
         print(f"  ❌ Failed: {response.status_code}")

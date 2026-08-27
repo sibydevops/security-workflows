@@ -17,6 +17,7 @@ jobs:
     outputs:
       languages: ${{ steps.detect.outputs.languages }}
       app-type: ${{ steps.detect.outputs.app-type }}
+      has-source: ${{ steps.detect.outputs.has-source }}
       has-dast-target: ${{ steps.detect.outputs.has-dast-target }}
       has-api-target: ${{ steps.detect.outputs.has-api-target }}
     steps:
@@ -28,12 +29,12 @@ jobs:
         shell: bash
         run: |
           languages=()
-          [[ -f package.json || -f package-lock.json || -f yarn.lock || -f pnpm-lock.yaml ]] && languages+=(javascript-typescript)
-          [[ -f requirements.txt || -f pyproject.toml || -f setup.py || -f Pipfile ]] && languages+=(python)
-          [[ -f pom.xml || -f build.gradle || -f build.gradle.kts ]] && languages+=(java-kotlin)
-          compgen -G '*.csproj' > /dev/null || compgen -G '*.sln' > /dev/null || [[ -f global.json ]] && languages+=(csharp)
-          [[ -f go.mod ]] && languages+=(go)
-          [[ -f Cargo.toml ]] && languages+=(rust)
+          find . -type f \( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \) -not -path './.git/*' | grep -q . || [[ -f package.json ]] && languages+=(javascript-typescript)
+          find . -type f -name '*.py' -not -path './.git/*' | grep -q . && languages+=(python)
+          find . -type f -name '*.java' -not -path './.git/*' | grep -q . || [[ -f pom.xml || -f build.gradle || -f build.gradle.kts ]] && languages+=(java-kotlin)
+          find . -type f \( -name '*.cs' -o -name '*.csproj' -o -name '*.sln' \) -not -path './.git/*' | grep -q . && languages+=(csharp)
+          find . -type f -name '*.go' -not -path './.git/*' | grep -q . || [[ -f go.mod ]] && languages+=(go)
+          find . -type f -name '*.rs' -not -path './.git/*' | grep -q . || [[ -f Cargo.toml ]] && languages+=(rust)
 
           dotnet_web=false
           grep -RIl 'Microsoft\.NET\.Sdk\.Web' . --include='*.csproj' | grep -q . && dotnet_web=true
@@ -49,7 +50,8 @@ jobs:
           fi
 
           language_list=$(IFS=,; echo "${languages[*]}")
-          echo "languages=${language_list:-javascript-typescript}" >> "$GITHUB_OUTPUT"
+          echo "languages=${language_list:-none}" >> "$GITHUB_OUTPUT"
+          [[ -n "$language_list" ]] && echo 'has-source=true' >> "$GITHUB_OUTPUT" || echo 'has-source=false' >> "$GITHUB_OUTPUT"
           echo "app-type=$app_type" >> "$GITHUB_OUTPUT"
           [[ -n "${{ vars.SECURITY_DAST_TARGET_URL }}" ]] && echo 'has-dast-target=true' >> "$GITHUB_OUTPUT" || echo 'has-dast-target=false' >> "$GITHUB_OUTPUT"
           [[ -n "${{ vars.SECURITY_API_URL }}" ]] && echo 'has-api-target=true' >> "$GITHUB_OUTPUT" || echo 'has-api-target=false' >> "$GITHUB_OUTPUT"
@@ -57,10 +59,10 @@ jobs:
   sast-scan:
     name: SAST Scan
     needs: classify
-    if: needs.classify.outputs.languages != 'none'
     uses: sibydevops/security-workflows/.github/workflows/reusable-sast-scan.yml@main
     with:
       languages: ${{ needs.classify.outputs.languages }}
+      run-analysis: ${{ needs.classify.outputs.has-source == 'true' }}
       queries: security-extended
 
   dependency-scan:
