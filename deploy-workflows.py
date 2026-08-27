@@ -69,7 +69,7 @@ else:
         )
         if status != 200:
             raise RuntimeError(f"Cannot list organization repositories: HTTP {status} ({response})")
-        page_repos = response.json()
+        page_repos = response
         repos.extend(page_repos)
         if len(page_repos) < 100:
             break
@@ -112,8 +112,8 @@ for repo in repos:
         data["sha"] = existing_file["sha"]
     
     if os.environ.get("DRY_RUN", "").lower() == "true":
-                print("  [dry run] would deploy workflow")
-                continue
+        print("  [dry run] would deploy workflow")
+        continue
 
     response_status, response = github_request(create_url, method="PUT", payload=data)
     
