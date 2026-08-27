@@ -28,6 +28,7 @@ Install Node.js, then from PowerShell:
 
 ```powershell
 cd webhook-worker
+npm install
 npm install -g wrangler
 wrangler login
 wrangler secret put GITHUB_APP_ID
@@ -35,6 +36,8 @@ wrangler secret put GITHUB_APP_PRIVATE_KEY
 wrangler secret put GITHUB_WEBHOOK_SECRET
 wrangler deploy
 ```
+
+GitHub App downloads commonly use `-----BEGIN RSA PRIVATE KEY-----`; this Worker supports both RSA (`PKCS1`) and generic (`PKCS8`) PEM formats.
 
 When prompted, paste the App ID, the complete PEM private-key text, and a long random webhook secret. The command prints a URL like:
 

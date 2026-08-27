@@ -31,40 +31,15 @@ function equal(a, b) {
   return result === 0;
 }
 
-function base64Url(value) {
-  return btoa(String.fromCharCode(...new Uint8Array(value)))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
-
-function pemToBytes(pem) {
-  const body = pem.replace(/-----[^-]+-----/g, "").replace(/\s/g, "");
-  const binary = atob(body);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
-}
-
 async function createAppJwt(env) {
-  const header = base64Url(new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
+  const { KJUR } = await import("jsrsasign");
   const now = Math.floor(Date.now() / 1000);
-  const payload = base64Url(new TextEncoder().encode(JSON.stringify({
-    iat: now - 60,
-    exp: now + 540,
-    iss: env.GITHUB_APP_ID,
-  })));
-  const key = await crypto.subtle.importKey(
-    "pkcs8",
-    pemToBytes(env.GITHUB_APP_PRIVATE_KEY),
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"],
+  return KJUR.jws.JWS.sign(
+    "RS256",
+    JSON.stringify({ alg: "RS256", typ: "JWT" }),
+    JSON.stringify({ iat: now - 60, exp: now + 540, iss: env.GITHUB_APP_ID }),
+    env.GITHUB_APP_PRIVATE_KEY,
   );
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    key,
-    new TextEncoder().encode(`${header}.${payload}`),
-  );
-  return `${header}.${payload}.${base64Url(signature)}`;
 }
 
 async function dispatch(event, env) {
@@ -110,7 +85,11 @@ export default {
     if (!['push', 'pull_request'].includes(eventName)) return json({ accepted: false }, 202);
     const event = { ...JSON.parse(raw), event: eventName };
     if (!event.repository?.full_name?.startsWith(`${env.GITHUB_ORGANIZATION}/`)) return json({ error: "repository outside organization" }, 403);
-    context.waitUntil(dispatch(event, env));
+    context.waitUntil(
+      dispatch(event, env).catch((error) => {
+        console.error(`GitHub dispatch failed: ${error.message}`);
+      }),
+    );
     return json({ accepted: true }, 202);
   },
 };
