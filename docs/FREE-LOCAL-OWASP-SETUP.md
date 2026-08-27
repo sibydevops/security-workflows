@@ -47,6 +47,8 @@ Expected steps:
 3. Run OWASP ZAP baseline scan.
 4. Upload the HTML, JSON, and Markdown reports.
 
+Automatic GitHub issue creation is disabled. ZAP findings are reviewed from the uploaded reports, avoiding a requirement for issue-write permissions on the repository token.
+
 Open the completed run and download the artifact:
 
 ```text
