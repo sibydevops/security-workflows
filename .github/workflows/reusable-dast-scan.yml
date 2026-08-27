@@ -41,8 +41,12 @@ jobs:
           ref: main
           path: .security-workflows
 
+      - name: Validate DAST target
+        if: inputs.target-url == ''
+        run: echo "No SECURITY_DAST_TARGET_URL configured; active OWASP ZAP scan is not applicable to this repository."
+
       - name: OWASP ZAP Baseline Scan
-        if: inputs.scan-type == 'baseline'
+        if: inputs.target-url != '' && inputs.scan-type == 'baseline'
         uses: zaproxy/action-baseline@v0.14.0
         with:
           target: ${{ inputs.target-url }}
@@ -51,7 +55,7 @@ jobs:
           artifact_name: 'zap-baseline-report'
 
       - name: OWASP ZAP Full Scan
-        if: inputs.scan-type == 'full'
+        if: inputs.target-url != '' && inputs.scan-type == 'full'
         uses: zaproxy/action-full-scan@v0.1.0
         with:
           target: ${{ inputs.target-url }}
@@ -61,13 +65,13 @@ jobs:
 
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && hashFiles('report_html.html') != ''
         with:
           name: zap-scan-report
           path: report_html.html
 
       - name: Upload ZAP Results to Code Scanning
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && hashFiles('report_html.sarif') != ''
         with:
           sarif_file: report_html.sarif

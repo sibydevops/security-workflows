@@ -49,7 +49,7 @@ jobs:
           fi
 
           language_list=$(IFS=,; echo "${languages[*]}")
-          echo "languages=${language_list:-none}" >> "$GITHUB_OUTPUT"
+          echo "languages=${language_list:-javascript-typescript}" >> "$GITHUB_OUTPUT"
           echo "app-type=$app_type" >> "$GITHUB_OUTPUT"
           [[ -n "${{ vars.SECURITY_DAST_TARGET_URL }}" ]] && echo 'has-dast-target=true' >> "$GITHUB_OUTPUT" || echo 'has-dast-target=false' >> "$GITHUB_OUTPUT"
           [[ -n "${{ vars.SECURITY_API_URL }}" ]] && echo 'has-api-target=true' >> "$GITHUB_OUTPUT" || echo 'has-api-target=false' >> "$GITHUB_OUTPUT"
@@ -74,7 +74,6 @@ jobs:
   dast-scan:
     name: DAST Scan (${{ needs.classify.outputs.app-type }})
     needs: classify
-    if: needs.classify.outputs.has-dast-target == 'true' && (github.event_name == 'push' || github.base_ref == 'main')
     uses: sibydevops/security-workflows/.github/workflows/reusable-dast-scan.yml@main
     with:
       target-url: ${{ vars.SECURITY_DAST_TARGET_URL }}
@@ -84,7 +83,6 @@ jobs:
   api-scan:
     name: API Security Scan
     needs: classify
-    if: needs.classify.outputs.has-api-target == 'true'
     uses: sibydevops/security-workflows/.github/workflows/reusable-api-scan.yml@main
     with:
       api-url: ${{ vars.SECURITY_API_URL }}

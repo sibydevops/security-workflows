@@ -35,4 +35,4 @@ The deployment script scans all repository API pages and skips this central repo
 
 ## Local Validation
 
-The mandatory caller uses CodeQL and OWASP Dependency-Check. OWASP ZAP and OWASP ASTF provide active penetration testing when authorized targets are configured. Pin the central workflow reference (`@main`) to a reviewed release tag when the organization adopts a release process.
+The mandatory caller starts CodeQL, OWASP Dependency-Check, OWASP ZAP, and OWASP ASTF jobs on every run. ZAP and ASTF perform active penetration testing only when authorized targets are configured; otherwise their jobs report that no target is applicable. Pin the central workflow reference (`@main`) to a reviewed release tag when the organization adopts a release process.
