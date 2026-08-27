@@ -9,6 +9,9 @@ on:
       ref:
         required: true
         type: string
+    secrets:
+      target-token:
+        required: true
 
 permissions:
   contents: read
@@ -23,6 +26,7 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
+          token: ${{ secrets.target-token }}
           fetch-depth: 0
 
       - name: Run OWASP Dependency-Check

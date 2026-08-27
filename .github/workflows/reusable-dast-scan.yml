@@ -7,6 +7,16 @@ on:
         description: 'Target URL for DAST scanning'
         required: true
         type: string
+      start-command:
+        description: 'Optional command to start the application on the runner'
+        required: false
+        default: ''
+        type: string
+      test-port:
+        description: 'Port used by the local application'
+        required: false
+        default: '5000'
+        type: string
       zap-rules-file:
         description: 'Path to ZAP rules file'
         required: false
@@ -40,6 +50,20 @@ jobs:
           repository: sibydevops/security-workflows
           ref: main
           path: .security-workflows
+
+      - name: Start local application
+        if: inputs.start-command != ''
+        shell: bash
+        run: |
+          ${{ inputs.start-command }} > application.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent "http://127.0.0.1:${{ inputs.test-port }}" > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat application.log
+          exit 1
 
       - name: Validate DAST target
         if: inputs.target-url == ''

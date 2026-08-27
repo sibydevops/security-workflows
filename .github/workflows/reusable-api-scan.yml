@@ -7,6 +7,16 @@ on:
         description: 'API base URL for security testing'
         required: true
         type: string
+      start-command:
+        description: 'Optional command to start the API on the runner'
+        required: false
+        default: ''
+        type: string
+      test-port:
+        description: 'Port used by the local API'
+        required: false
+        default: '5000'
+        type: string
       openapi-spec:
         description: 'Path to OpenAPI specification file'
         required: false
@@ -32,6 +42,20 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Start local API
+        if: inputs.start-command != ''
+        shell: bash
+        run: |
+          ${{ inputs.start-command }} > api.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent "http://127.0.0.1:${{ inputs.test-port }}" > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat api.log
+          exit 1
 
       - name: Validate API target
         if: inputs.api-url == ''

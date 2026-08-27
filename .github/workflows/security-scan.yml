@@ -69,7 +69,9 @@ jobs:
     needs: classify
     uses: sibydevops/security-workflows/.github/workflows/reusable-dast-scan.yml@main
     with:
-      target-url: ${{ vars.SECURITY_DAST_TARGET_URL }}
+      target-url: ${{ vars.SECURITY_DAST_TARGET_URL || (vars.SECURITY_START_COMMAND && format('http://127.0.0.1:{0}', vars.SECURITY_TEST_PORT || '5000') || '') }}
+      start-command: ${{ vars.SECURITY_START_COMMAND }}
+      test-port: ${{ vars.SECURITY_TEST_PORT || '5000' }}
       zap-rules-file: configs/zap/rules.tsv
       scan-type: baseline
 
@@ -78,7 +80,9 @@ jobs:
     needs: classify
     uses: sibydevops/security-workflows/.github/workflows/reusable-api-scan.yml@main
     with:
-      api-url: ${{ vars.SECURITY_API_URL }}
+      api-url: ${{ vars.SECURITY_API_URL || (vars.SECURITY_START_COMMAND && format('http://127.0.0.1:{0}', vars.SECURITY_TEST_PORT || '5000') || '') }}
+      start-command: ${{ vars.SECURITY_START_COMMAND }}
+      test-port: ${{ vars.SECURITY_TEST_PORT || '5000' }}
       openapi-spec: docs/openapi.yaml
     secrets:
       api-token: ${{ secrets.SECURITY_API_TOKEN }}

@@ -15,6 +15,28 @@ The central receiver is [central-security-dispatch.yml](.github/workflows/centra
 
 This event-service design requires a small always-on service such as Azure Functions, AWS Lambda, or Cloud Run. GitHub Actions alone cannot subscribe one central workflow to push events from 10,000 repositories.
 
+### Free-Tier Webhook Implementation
+
+The `webhook-worker` directory contains a dependency-free Cloudflare Worker implementation. Cloudflare's free plan is sufficient for low-volume testing; 10,000 repositories may require a paid plan or queueing service depending on event volume.
+
+```powershell
+cd webhook-worker
+npm install -g wrangler
+wrangler login
+wrangler secret put GITHUB_APP_ID
+wrangler secret put GITHUB_APP_PRIVATE_KEY
+wrangler secret put GITHUB_WEBHOOK_SECRET
+wrangler deploy
+```
+
+The deployment prints a URL such as `https://central-owasp-webhook.<account>.workers.dev`. Set the GitHub App webhook URL to:
+
+```text
+https://central-owasp-webhook.<account>.workers.dev/github/webhook
+```
+
+Add `SECURITY_APP_ID` and `SECURITY_APP_PRIVATE_KEY` as secrets in `security-workflows`. The App must have installation access to all target repositories, repository `Contents: Read`, and permission to create workflow dispatches. The central workflow uses the installation token to check out the target repository.
+
 The caller classifies repositories from their files and selects CodeQL languages. The supported profiles are:
 
 | Profile | Detection examples | Scans |
@@ -29,6 +51,20 @@ OWASP ZAP DAST and OWASP ASTF API penetration testing are target-based and inten
 - `SECURITY_DAST_TARGET_URL`: deployed web application URL for OWASP ZAP.
 - `SECURITY_API_URL`: deployed API base URL for OWASP ASTF.
 - `SECURITY_API_TOKEN`: optional repository or environment secret for authenticated API scans.
+
+If you do not have a deployed URL, configure a local test run in the application repository with these variables:
+
+- `SECURITY_START_COMMAND`: command that starts the app and listens on the test port.
+- `SECURITY_TEST_PORT`: port used by that command, default `5000`.
+
+Examples:
+
+```text
+Flask: pip install -r requirements.txt && flask run --host=0.0.0.0 --port=5000
+ASP.NET Core: dotnet restore && dotnet run --urls http://0.0.0.0:5000
+```
+
+The workflow starts the command on the GitHub runner and scans `http://127.0.0.1:<port>`. The application must expose a health or root endpoint that responds successfully. For APIs, place an OpenAPI document at `docs/openapi.yaml` or configure an external API target.
 
 Do not derive target URLs from repository names. A scan must point at an authorized test environment.
 
